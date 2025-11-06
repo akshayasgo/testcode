@@ -5,15 +5,16 @@ $AzureFileShareUNC = "\\teastasjay.file.core.windows.net\test\oracle"
 $ZipFileName = "WINDOWS.X64_193000_client.zip"
 $SourceZipPath = Join-Path -Path $AzureFileShareUNC -ChildPath $ZipFileName
 
-# Response File Configuration (New Source/Destination)
+# Response File Configuration 
 $ResponseFileName = "client_silent.rsp"
 $SourceRspPath = Join-Path -Path $AzureFileShareUNC -ChildPath $ResponseFileName # Source on File Share
-$ResponseFilePath = "C:\Users\akshay9826\Downloads\$ResponseFileName"           # Destination on Local Machine
+# *** MODIFIED: Staging Response File to C:\Temp\ ***
+$ResponseFilePath = Join-Path -Path "C:\Temp" -ChildPath $ResponseFileName 
 
 # Local Staging Configuration
 $DestinationTempPath = "C:\Temp"
 $LocalZipPath = Join-Path -Path $DestinationTempPath -ChildPath $ZipFileName
-$ExtractFolderName = "oracle19c"
+$ExtractFolderName = "oracle12c"
 $ExtractPath = Join-Path -Path $DestinationTempPath -ChildPath $ExtractFolderName
 $SetupExePath = Join-Path -Path $ExtractPath -ChildPath "client\setup.exe" 
 
@@ -27,21 +28,25 @@ $InstallerArguments = "-silent -responseFile `"$ResponseFilePath`" -noconsole -w
 # --- 2. FILE STAGING: COPY AND EXTRACT ---
 Write-Host "--- 1/2: Staging Files ---"
 
-# Create target directory
+# Create target directory (ensure C:\Temp is also checked if it doesn't exist)
+if (-not (Test-Path $DestinationTempPath)) {
+    New-Item -Path $DestinationTempPath -ItemType Directory -Force | Out-Null
+}
+
 if (-not (Test-Path $ExtractPath)) {
     New-Item -Path $ExtractPath -ItemType Directory -Force | Out-Null
     Write-Host "Created extraction path: $ExtractPath"
 }
 
 # --- A. Copy Response File ---
-Write-Host "Copying Response File $ResponseFileName..."
+Write-Host "Copying Response File $ResponseFileName to $DestinationTempPath..."
 try {
-    # Assuming C:\Users\akshay9826\Downloads exists. Use -Force to overwrite if it does.
+    # Destination is now C:\Temp\client_silent.rsp
     Copy-Item -Path $SourceRspPath -Destination $ResponseFilePath -Force -ErrorAction Stop
     Write-Host "Copied $ResponseFileName successfully to $ResponseFilePath."
 }
 catch {
-    Write-Error "FATAL ERROR: Failed to copy Response File. Check permissions to access UNC path and local Downloads folder."
+    Write-Error "FATAL ERROR: Failed to copy Response File. Check permissions to access UNC path."
     Write-Error "Error Details: $($_.Exception.Message)"
     exit 1
 }
@@ -83,7 +88,6 @@ if (-not (Test-Path $SetupExePath)) {
     Write-Error "FATAL ERROR: Cannot find setup.exe after extraction."
     exit 1
 }
-# The response file validation is now covered by the copy step above.
 
 Write-Host "Starting installation process for $SetupExePath..."
 Write-Host "Arguments: $InstallerArguments"
